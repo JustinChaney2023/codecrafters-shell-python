@@ -17,6 +17,8 @@ def main():
             echo(command[5:].strip())
         elif command.startswith("type"):
             print(type_command(command[5:].strip()))
+        elif command.startswith("pwd"):
+            pwd()
         else:
             execute_command(command)
 
@@ -28,6 +30,9 @@ def exit(code):
 
 def echo(text):             # Prints text taken after echo command
     print(text)
+
+def pwd():                  # Prints current working directory
+    print(os.getcwd())
 
 def type_command(command):  # Gives command type
     builtins = ["echo", "exit", "type"]
