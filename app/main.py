@@ -86,9 +86,13 @@ def exit(args):
         sys.exit(0)                             # Defaults to 0 if no integer is provided
 
 def echo(args, output_file=None, error_file=None):
-    """Prints the provided arguments as a single line, with optional stdout redirection"""
+    """Prints the provided arguments as a single line, with optional stdout and stderr redirection"""
     output = " ".join(args)
 
+    # If stderr redirection (`2>`) is used, create an empty file
+    if error_file:
+        open(error_file, "w").close()  # Ensures the file exists (empty)
+    
     # Redirect stdout if `>` is used
     if output_file:
         with open(output_file, "w") as f:
@@ -96,7 +100,6 @@ def echo(args, output_file=None, error_file=None):
     else:
         print(output)
 
-    # Ignore stderr redirection for `echo`, because it does not naturally produce stderr
 
 def execute_pwd(output_file=None):
     """Prints current working directory, with optional redirection"""
