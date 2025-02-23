@@ -19,6 +19,8 @@ def main():
             print(type_command(command[5:].strip()))
         elif command.startswith("pwd"):
             pwd()
+        elif command.startswith("cd"):
+            cd(command[3:].strip())
         else:
             execute_command(command)
 
@@ -33,6 +35,16 @@ def echo(text):             # Prints text taken after echo command
 
 def pwd():                  # Prints current working directory
     print(os.getcwd())
+
+def cd(directory):          # Changes current working directory
+    try:
+        os.chdir(directory)
+    except FileNotFoundError:
+        print(f"cd: {directory}: No such file or directory")
+    except PermissionError:
+        print(f"cd: {directory}: Permission denied")
+    except Exception as e:
+        print(f"cd: {directory}: {e}")
 
 def type_command(command):  # Gives command type
     builtins = ["echo", "exit", "type", "pwd"]
