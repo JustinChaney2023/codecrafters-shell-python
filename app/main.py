@@ -6,6 +6,7 @@ import shlex
 def main():
     while True:
         sys.stdout.write("$ ")
+        sys.stdout.flush()
 
         # Wait for user input
         command_input = input().strip()
@@ -14,42 +15,48 @@ def main():
 
         # Check for output redirection (>)
         output_file = None
-        if ">" in command_input:
-            parts = shlex.split(command_input, posix=True)
-            if ">" in parts:
-                idx = parts.index(">")
-            elif "1>" in parts:
-                idx = parts.index("1>")
-            else:
-                idx = -1  # Not found
-            
-            if idx != -1 and idx + 1 < len(parts):
+        parts = shlex.split(command_input, posix=True)
+
+        if ">" in parts or "1>" in parts:
+            try:
+                if ">" in parts:
+                    idx = parts.index(">")
+                else:
+                    idx = parts.index("1>")
+
+                if idx + 1 >= len(parts):
+                    print("syntax error: expected filename after '>'")
+                    continue  # Prevents infinite loop if no file is provided
+
                 output_file = parts[idx + 1]  # Extract filename
                 parts = parts[:idx]  # Remove redirection part from command
 
-        # Proceed with executing the parsed command
-        if not parts:
-            continue  # Ignore empty command
+            except IndexError:
+                print("syntax error: unexpected token '>'")
+                continue  # Prevents the loop from getting stuck
+
+        if not parts:  # Ensure valid command exists after removing redirection
+            continue  
 
         command = parts[0]
         args = parts[1:]
 
-        if command.startswith("exit"):
+        if command == "exit":
             exit(args)
-        elif command.startswith("echo"):
-            echo(args, output_file)  # Pass output file for redirection
-        elif command.startswith("type"):
+        elif command == "echo":
+            echo(args, output_file)  
+        elif command == "type":
             if args:
                 execute_type(args[0], output_file)
             else:
                 execute_type("missing argument", output_file)
-        elif command.startswith("pwd"):
+        elif command == "pwd":
             execute_pwd(output_file)
-        elif command.startswith("cd"):
+        elif command == "cd":
             if args:
                 cd(args[0])
             else:
-                cd("~")  # Default to home if no argument is provided
+                cd("~")  
         else:
             execute_command(command, args, output_file)
 
@@ -126,7 +133,7 @@ def execute_command(command, args, output_file=None):
                 # Open file only if redirection is requested
                 if output_file:
                     with open(output_file, "w") as f:
-                        subprocess.run([full_path] + args, stdout=f, stderr=None)
+                        subprocess.run([full_path] + args, stdout=f, stderr=sys.stderr)  # Fix: Ensures errors print in terminal
 
                 else:
                     subprocess.run([full_path] + args)  # No redirection, normal execution
