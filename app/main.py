@@ -57,7 +57,8 @@ def execute_command(command_input):
         full_path = os.path.join(directory, command)
         if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
             try:
-                subprocess.run([full_path] + args)
+                subprocess.run([command] + args, executable=full_path)
+
                 return
             except Exception as e:
                 print(f"Error executing {command}: {e}")
