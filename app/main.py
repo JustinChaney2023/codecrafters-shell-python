@@ -35,7 +35,7 @@ def pwd():                  # Prints current working directory
     print(os.getcwd())
 
 def type_command(command):  # Gives command type
-    builtins = ["echo", "exit", "type"]
+    builtins = ["echo", "exit", "type", "pwd"]
 
     if command in builtins:
         return f"{command} is a shell builtin"
