@@ -37,6 +37,12 @@ def pwd():                  # Prints current working directory
     print(os.getcwd())
 
 def cd(directory):          # Changes current working directory
+
+    if directory == "~":    # Changes to home directory
+        homepath = os.path.expanduser("~")
+        os.chdir(homepath)
+        return
+
     try:
         os.chdir(directory)
     except FileNotFoundError:
