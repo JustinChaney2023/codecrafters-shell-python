@@ -118,19 +118,25 @@ def execute_type(command, output_file=None):
 def execute_command(command, args, output_file=None):
     """Searches for an executable in PATH and runs it with arguments, supporting output redirection"""
     path_dirs = os.environ.get("PATH", "").split(":")
-    
+
     for directory in path_dirs:
         full_path = os.path.join(directory, command)
         if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
             try:
-                with open(output_file, "w") if output_file else None as f:
-                    subprocess.run([full_path] + args, stdout=f, stderr=sys.stderr)
+                # Open file only if redirection is requested
+                if output_file:
+                    with open(output_file, "w") as f:
+                        subprocess.run([full_path] + args, stdout=f, stderr=sys.stderr)
+                else:
+                    subprocess.run([full_path] + args)  # No redirection, normal execution
+                
                 return
             except Exception as e:
                 print(f"Error executing {command}: {e}")
                 return
 
     print(f"{command}: command not found")
+
 
 if __name__ == "__main__":
     main()
