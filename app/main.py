@@ -133,10 +133,9 @@ def execute_command(command, args, output_file=None):
                 # Open file only if redirection is requested
                 if output_file:
                     with open(output_file, "w") as f:
-                        subprocess.run([full_path] + args, stdout=f, stderr=sys.stderr)  # Fix: Ensures errors print in terminal
-
+                        subprocess.run([command] + args, executable=full_path, stdout=f, stderr=sys.stderr)
                 else:
-                    subprocess.run([full_path] + args)  # No redirection, normal execution
+                    subprocess.run([command] + args, executable=full_path)  # ✅ Fix: Runs full path but keeps Arg #0 as command name
                 
                 return
             except Exception as e:
