@@ -61,7 +61,7 @@ def main():
         if command == "exit":
             exit(args)
         elif command == "echo":
-            echo(args, output_file)
+            echo(args, output_file, error_file)  # Pass error_file to echo
         elif command == "type":
             if args:
                 execute_type(args[0], output_file)
@@ -77,6 +77,7 @@ def main():
         else:
             execute_command(command, args, output_file, error_file)
 
+
 def exit(args):
     """Exit the shell with an optional exit code"""
     try:
@@ -84,14 +85,20 @@ def exit(args):
     except ValueError:
         sys.exit(0)                             # Defaults to 0 if no integer is provided
 
-def echo(args, output_file=None):
-    """Prints the provided arguments as a single line, with optional redirection"""
+def echo(args, output_file=None, error_file=None):
+    """Prints the provided arguments as a single line, with optional stdout and stderr redirection"""
     output = " ".join(args)
-    if output_file:
+
+    # If stderr redirection is requested, write to the error file
+    if error_file:
+        with open(error_file, "w") as f:
+            f.write(output + "\n")
+    elif output_file:
         with open(output_file, "w") as f:
             f.write(output + "\n")
     else:
         print(output)
+
 
 def execute_pwd(output_file=None):
     """Prints current working directory, with optional redirection"""
