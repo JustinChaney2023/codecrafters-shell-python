@@ -21,7 +21,10 @@ def main():
         elif command.startswith("echo"):
             echo(args)
         elif command.startswith("type"):
-            print(args)
+            if args:
+                print(type_command(args[0]))
+            else:
+                print("type: missing argument")
         elif command.startswith("pwd"):
             pwd()
         elif command.startswith("cd"):
