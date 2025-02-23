@@ -13,10 +13,27 @@ def main():
         if not command_input:
             continue
 
-        # Check for output redirection (>)
+        # Check for output redirection (> or 1>)
         output_file = None
+        error_file = None
         parts = shlex.split(command_input, posix=True)
 
+        # Handle stderr redirection (2>)
+        if "2>" in parts:
+            try:
+                idx = parts.index("2>")
+                if idx + 1 >= len(parts):
+                    print("syntax error: expected filename after '2>'")
+                    continue  # Prevents infinite loop if no file is provided
+
+                error_file = parts[idx + 1]  # Extract stderr filename
+                parts = parts[:idx]  # Remove redirection part from command
+
+            except IndexError:
+                print("syntax error: unexpected token '2>'")
+                continue
+
+        # Handle stdout redirection (> or 1>)
         if ">" in parts or "1>" in parts:
             try:
                 if ">" in parts:
@@ -26,17 +43,17 @@ def main():
 
                 if idx + 1 >= len(parts):
                     print("syntax error: expected filename after '>'")
-                    continue  # Prevents infinite loop if no file is provided
+                    continue
 
-                output_file = parts[idx + 1]  # Extract filename
+                output_file = parts[idx + 1]  # Extract stdout filename
                 parts = parts[:idx]  # Remove redirection part from command
 
             except IndexError:
                 print("syntax error: unexpected token '>'")
-                continue  # Prevents the loop from getting stuck
+                continue
 
-        if not parts:  # Ensure valid command exists after removing redirection
-            continue  
+        if not parts:
+            continue  # Ensure valid command exists
 
         command = parts[0]
         args = parts[1:]
@@ -44,7 +61,7 @@ def main():
         if command == "exit":
             exit(args)
         elif command == "echo":
-            echo(args, output_file)  
+            echo(args, output_file)
         elif command == "type":
             if args:
                 execute_type(args[0], output_file)
@@ -56,9 +73,9 @@ def main():
             if args:
                 cd(args[0])
             else:
-                cd("~")  
+                cd("~")
         else:
-            execute_command(command, args, output_file)
+            execute_command(command, args, output_file, error_file)
 
 def exit(args):
     """Exit the shell with an optional exit code"""
@@ -122,27 +139,30 @@ def execute_type(command, output_file=None):
     else:
         print(output)
 
-def execute_command(command, args, output_file=None):
-    """Searches for an executable in PATH and runs it with arguments, supporting output redirection"""
+def execute_command(command, args, output_file=None, error_file=None):
+    """Searches for an executable in PATH and runs it with arguments, supporting output & error redirection"""
     path_dirs = os.environ.get("PATH", "").split(":")
 
     for directory in path_dirs:
         full_path = os.path.join(directory, command)
         if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
             try:
-                # Open file only if redirection is requested
-                if output_file:
-                    with open(output_file, "w") as f:
-                        subprocess.run([command] + args, executable=full_path, stdout=f, stderr=sys.stderr)
-                else:
-                    subprocess.run([command] + args, executable=full_path)  # ✅ Fix: Runs full path but keeps Arg #0 as command name
-                
+                stdout_target = open(output_file, "w") if output_file else None
+                stderr_target = open(error_file, "w") if error_file else sys.stderr
+
+                subprocess.run([command] + args, executable=full_path, stdout=stdout_target, stderr=stderr_target)
+
+                if stdout_target:
+                    stdout_target.close()
+                if stderr_target and stderr_target is not sys.stderr:
+                    stderr_target.close()
+
                 return
             except Exception as e:
-                print(f"Error executing {command}: {e}")
+                print(f"Error executing {command}: {e}", file=sys.stderr)
                 return
 
-    print(f"{command}: command not found")
+    print(f"{command}: command not found", file=sys.stderr)
 
 
 if __name__ == "__main__":
