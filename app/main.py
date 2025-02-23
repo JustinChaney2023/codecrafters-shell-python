@@ -8,7 +8,7 @@ def main():
 
         # Wait for user input
         command = input()
-        if command == "exit":
+        if command == "exit 0":
             break
         else:
             print(f"{command}: command not found")
