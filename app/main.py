@@ -26,7 +26,7 @@ def echo(text):             # Prints text taken after echo command
     print(text)
 
 def type(command):          # Gives command type
-    builtins = ["echo", "exit"]
+    builtins = ["echo", "exit", "type"]
 
     if command in builtins:
         return f"{command} is a shell builtin"
