@@ -12,28 +12,46 @@ def main():
         if not command_input:
             continue
 
-        parts = shlex.split(command_input, posix=True)  # Ensure arguments are parsed correctly
+        # Check for output redirection (>)
+        output_file = None
+        if ">" in command_input:
+            parts = shlex.split(command_input, posix=True)
+            if ">" in parts:
+                idx = parts.index(">")
+            elif "1>" in parts:
+                idx = parts.index("1>")
+            else:
+                idx = -1  # Not found
+            
+            if idx != -1 and idx + 1 < len(parts):
+                output_file = parts[idx + 1]  # Extract filename
+                parts = parts[:idx]  # Remove redirection part from command
+
+        # Proceed with executing the parsed command
+        if not parts:
+            continue  # Ignore empty command
+
         command = parts[0]
         args = parts[1:]
 
         if command.startswith("exit"):
             exit(args)
         elif command.startswith("echo"):
-            echo(args)
+            echo(args, output_file)  # Pass output file for redirection
         elif command.startswith("type"):
             if args:
-                print(type_command(args[0]))
+                execute_type(args[0], output_file)
             else:
-                print("type: missing argument")
+                execute_type("missing argument", output_file)
         elif command.startswith("pwd"):
-            pwd()
+            execute_pwd(output_file)
         elif command.startswith("cd"):
             if args:
                 cd(args[0])
             else:
-                cd("~")                         # Default to home if no argument is provided
+                cd("~")  # Default to home if no argument is provided
         else:
-            execute_command(command, args)
+            execute_command(command, args, output_file)
 
 def exit(args):
     """Exit the shell with an optional exit code"""
@@ -42,17 +60,27 @@ def exit(args):
     except ValueError:
         sys.exit(0)                             # Defaults to 0 if no integer is provided
 
-def echo(args):                                 # Prints text taken after echo command
-    """Prints the provided arguments as a single line"""
-    print(" ".join(args))
+def echo(args, output_file=None):
+    """Prints the provided arguments as a single line, with optional redirection"""
+    output = " ".join(args)
+    if output_file:
+        with open(output_file, "w") as f:
+            f.write(output + "\n")
+    else:
+        print(output)
 
-def pwd():                                      # Prints current working directory
-    """Prints current working directory"""
-    print(os.getcwd())
+def execute_pwd(output_file=None):
+    """Prints current working directory, with optional redirection"""
+    output = os.getcwd()
+    if output_file:
+        with open(output_file, "w") as f:
+            f.write(output + "\n")
+    else:
+        print(output)
 
-def cd(directory):                              # Changes current working directory
+def cd(directory):
     """Changes current working directory"""
-    if directory == "~":                        # Changes to home directory
+    if directory == "~":
         homepath = os.path.expanduser("~")
         os.chdir(homepath)
         return
@@ -66,32 +94,37 @@ def cd(directory):                              # Changes current working direct
     except Exception as e:
         print(f"cd: {directory}: {e}")
 
-def type_command(command):  # Gives command type
+def execute_type(command, output_file=None):
     """Determines if the command is a builtin or an executable"""
-    builtins = ["echo", "exit", "type", "pwd"]
+    builtins = ["echo", "exit", "type", "pwd", "cd"]
 
     if command in builtins:
-        return f"{command} is a shell builtin"
+        output = f"{command} is a shell builtin"
+    else:
+        path_dirs = os.environ.get("PATH", "").split(":")
+        output = f"{command}: not found"
+        for directory in path_dirs:
+            full_path = os.path.join(directory, command)
+            if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
+                output = f"{command} is {full_path}"
+                break
 
-    # Get PATH directories
-    path_dirs = os.environ.get("PATH", "").split(":")
+    if output_file:
+        with open(output_file, "w") as f:
+            f.write(output + "\n")
+    else:
+        print(output)
 
-    for directory in path_dirs:
-        full_path = os.path.join(directory, command)
-        if os.path.isfile(full_path) and os.access(full_path, os.X_OK):  # Check if executable
-            return f"{command} is {full_path}"
-
-    return f"{command}: not found"
-
-def execute_command(command, args):
-    """Searches for an executable in PATH and runs it with arguments"""
+def execute_command(command, args, output_file=None):
+    """Searches for an executable in PATH and runs it with arguments, supporting output redirection"""
     path_dirs = os.environ.get("PATH", "").split(":")
     
     for directory in path_dirs:
         full_path = os.path.join(directory, command)
         if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
             try:
-                subprocess.run([command] + args, executable=full_path)
+                with open(output_file, "w") if output_file else None as f:
+                    subprocess.run([full_path] + args, stdout=f, stderr=sys.stderr)
                 return
             except Exception as e:
                 print(f"Error executing {command}: {e}")
