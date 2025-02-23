@@ -12,7 +12,7 @@ def main():
         elif command.startswith("echo"):
             echo(command[5:].strip())
         elif command.startswith("type"):
-            print(type(command[5:].strip()))
+            print(type_command(command[5:].strip()))
         else:
             print(f"{command}: command not found")
 
@@ -25,13 +25,21 @@ def exit(code):
 def echo(text):             # Prints text taken after echo command
     print(text)
 
-def type(command):          # Gives command type
+def type_command(command):          # Gives command type
     builtins = ["echo", "exit", "type"]
 
     if command in builtins:
         return f"{command} is a shell builtin"
-    else:
-        return f"{command}: not found"
+
+    # Get PATH directories
+    path_dirs = os.environ.get("PATH", "").split(":")
+
+    for directory in path_dirs:
+        full_path = os.path.join(directory, command)
+        if os.path.isfile(full_path) and os.access(full_path, os.X_OK):  # Check if executable
+            return f"{command} is {full_path}"
+        
+    return f"{command}: not found"
 
 
 if __name__ == "__main__":
