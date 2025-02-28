@@ -82,21 +82,21 @@ def main():
         if command == "exit":
             exit(args)
         elif command == "echo":
-            echo(args, output_file, error_file)  # Pass error_file to echo
+            echo(args, output_file, error_file, append_output)  # Pass error_file to echo
         elif command == "type":
             if args:
-                execute_type(args[0], output_file)
+                execute_type(args[0], output_file, append_output)
             else:
-                execute_type("missing argument", output_file)
+                execute_type("missing argument", output_file, append_output)
         elif command == "pwd":
-            execute_pwd(output_file)
+            execute_pwd(output_file, append_output)
         elif command == "cd":
             if args:
                 cd(args[0])
             else:
                 cd("~")
         else:
-            execute_command(command, args, output_file, error_file)
+            execute_command(command, args, output_file, error_file, append_output)
 
 
 def exit(args):
@@ -116,11 +116,11 @@ def echo(args, output_file=None, error_file=None, append_output=False):
     
     # Redirect stdout if `>` is used
     if output_file:
-        with open(output_file, "w") as f:
+        mode = "a" if append_output else "w" # Append mode if `>>`, otherwise overwrite
+        with open(output_file, mode) as f:
             f.write(output + "\n")
     else:
         print(output)
-
 
 def execute_pwd(output_file=None, append_output=False):
     """Prints current working directory, with optional redirection"""
@@ -176,8 +176,8 @@ def execute_command(command, args, output_file=None, error_file=None, append_out
         full_path = os.path.join(directory, command)
         if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
             try:
-                stdout_target = open(output_file, "w") if output_file else None
-                stderr_target = open(error_file, "w") if error_file else sys.stderr
+                stdout_target = open(output_file, "a" if append_output else "w") if output_file else None
+                stderr_target = open(error_file, "a" if append_output else "w") if error_file else sys.stderr
 
                 subprocess.run([command] + args, executable=full_path, stdout=stdout_target, stderr=stderr_target)
 
