@@ -20,19 +20,22 @@ def main():
         parts = shlex.split(command_input, posix=True)
 
         # Handle stderr redirection (2>)
-        if "2>" in parts:
-            try:
-                idx = parts.index("2>")
-                if idx + 1 >= len(parts):
-                    print("syntax error: expected filename after '2>'")
-                    continue  # Prevents infinite loop if no file is provided
-
-                error_file = parts[idx + 1]  # Extract stderr filename
-                parts = parts[:idx]  # Remove redirection part from command
-
-            except IndexError:
-                print("syntax error: unexpected token '2>'")
+        if "2>>" in parts:
+            idx = parts.index("2>>")
+            if idx + 1 >= len(parts):
+                print("syntax error: expected filename after '2>>'")
                 continue
+            error_file = parts[idx + 1]  # Extract stderr filename
+            append_error = True # Set append mode
+            parts = parts[:idx]  # Remove redirection part from command
+        elif "2>" in parts:
+            idx = parts.index("2>")
+            if idx + 1 >= len(parts):
+                print("syntax error: expected filename after '2>'")
+                continue
+            error_file = parts[idx + 1]  # Extract stderr filename
+            append_error = False # Overwrite mode
+            parts = parts[:idx]
 
         # Handle stdout redirection (> or 1>)
         if ">>" in parts or "1>>" in parts:
@@ -82,7 +85,7 @@ def main():
         if command == "exit":
             exit(args)
         elif command == "echo":
-            echo(args, output_file, error_file, append_output)  # Pass error_file to echo
+            echo(args, output_file, error_file, append_output, append_error)  # Pass error_file to echo
         elif command == "type":
             if args:
                 execute_type(args[0], output_file, append_output)
@@ -96,7 +99,7 @@ def main():
             else:
                 cd("~")
         else:
-            execute_command(command, args, output_file, error_file, append_output)
+            execute_command(command, args, output_file, error_file, append_output, append_error)
 
 
 def exit(args):
@@ -177,7 +180,7 @@ def execute_command(command, args, output_file=None, error_file=None, append_out
         if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
             try:
                 stdout_target = open(output_file, "a" if append_output else "w") if output_file else None
-                stderr_target = open(error_file, "a" if append_output else "w") if error_file else sys.stderr
+                stderr_target = open(error_file, "a" if append_error else "w") if error_file else sys.stderr
 
                 subprocess.run([command] + args, executable=full_path, stdout=stdout_target, stderr=stderr_target)
 
