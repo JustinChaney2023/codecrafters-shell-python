@@ -3,6 +3,13 @@ import os
 import subprocess
 import shlex
 
+def safe_open(filename, mode):
+    """Open filename in the given mode, ensuring the parent directory exists."""
+    parent = os.path.dirname(filename)
+    if parent and not os.path.exists(parent):
+        os.makedirs(parent, exist_ok=True)
+    return open(filename, mode)
+
 def main():
     while True:
         sys.stdout.write("$ ")
@@ -38,41 +45,28 @@ def main():
             append_error = False # Overwrite mode
             parts = parts[:idx]
 
-        # Handle stdout redirection (> or 1>)
+        # Handle stdout redirection (> or 1> and >> or 1>>)
         if ">>" in parts or "1>>" in parts:
             try:
-                if ">>" in parts:
-                    idx = parts.index(">>")
-                else:
-                    idx = parts.index("1>>")
-
+                idx = parts.index(">>") if ">>" in parts else parts.index("1>>")
                 if idx + 1 >= len(parts):
                     print("syntax error: expected filename after '>>'")
                     continue
-
-                output_file = parts[idx + 1]  # Extract stdout filename
-                append_output = True # Set append mode
-                parts = parts[:idx]  # Remove redirection part from command
-
+                output_file = parts[idx + 1]
+                append_output = True
+                parts = parts[:idx]
             except IndexError:
                 print("syntax error: unexpected token '>>'")
                 continue
-
         elif ">" in parts or "1>" in parts:
             try:
-                if ">" in parts:
-                    idx = parts.index(">")
-                else:
-                    idx = parts.index("1>")
-
+                idx = parts.index(">") if ">" in parts else parts.index("1>")
                 if idx + 1 >= len(parts):
                     print("syntax error: expected filename after '>'")
                     continue
-
-                output_file = parts[idx + 1]  # Extract stdout filename
-                append_output = False # Overwrite mode
-                parts = parts[:idx]  # Remove redirection part from command
-
+                output_file = parts[idx + 1]
+                append_output = False
+                parts = parts[:idx]
             except IndexError:
                 print("syntax error: unexpected token '>'")
                 continue
@@ -84,9 +78,9 @@ def main():
         args = parts[1:]
 
         if command == "exit":
-            exit(args)
+            exit_shell(args)
         elif command == "echo":
-            echo(args, output_file, append_output)
+            echo(args, output_file, error_file, append_output, append_error)
         elif command == "type":
             if args:
                 execute_type(args[0], output_file, append_output)
@@ -103,23 +97,28 @@ def main():
             execute_command(command, args, output_file, error_file, append_output, append_error)
 
 
-def exit(args):
+def exit_shell(args):
     """Exit the shell with an optional exit code"""
     try:
         sys.exit(int(args[0]) if args else 0)   # Converts string to integer to take exit code
     except ValueError:
         sys.exit(0)                             # Defaults to 0 if no integer is provided
 
-def echo(args, output_file=None, append_output=False):
-    """Prints the provided arguments as a single line, with optional stdout redirection"""
+def echo(args, output_file=None, error_file=None, append_output=False, append_error=False):
     output = " ".join(args)
+    # If error redirection is provided, write to that file and do not print to stdout.
+    if error_file:
+        mode = "a" if append_error else "w"
+        with safe_open(error_file, mode) as f:
+            f.write(output + "\n")
+        return
+
     if output_file:
         mode = "a" if append_output else "w"
-        with open(output_file, mode) as f:
+        with safe_open(output_file, mode) as f:
             f.write(output + "\n")
     else:
         print(output)
-
 
 def execute_pwd(output_file=None, append_output=False):
     """Prints current working directory, with optional redirection"""
@@ -168,15 +167,13 @@ def execute_type(command, output_file=None, append_output=False):
         print(output)
 
 def execute_command(command, args, output_file=None, error_file=None, append_output=False, append_error=False):
-    """Executes a command, supporting stdout and stderr redirection, including append mode."""
     path_dirs = os.environ.get("PATH", "").split(":")
-
     for directory in path_dirs:
         full_path = os.path.join(directory, command)
         if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
             try:
-                stdout_target = open(output_file, "a" if append_output else "w") if output_file else None
-                stderr_target = open(error_file, "a" if append_error else "w") if error_file else sys.stderr
+                stdout_target = safe_open(output_file, "a" if append_output else "w") if output_file else None
+                stderr_target = safe_open(error_file, "a" if append_error else "w") if error_file else sys.stderr
 
                 subprocess.run([command] + args, executable=full_path, stdout=stdout_target, stderr=stderr_target)
 
@@ -184,17 +181,16 @@ def execute_command(command, args, output_file=None, error_file=None, append_out
                     stdout_target.close()
                 if stderr_target and stderr_target is not sys.stderr:
                     stderr_target.close()
-
                 return
             except Exception as e:
                 print(f"Error executing {command}: {e}", file=sys.stderr)
                 return
 
-    # Handle 'command not found' properly with stderr redirection
+    # If the command is not found, output the error message
     error_message = f"{command}: command not found\n"
     if error_file:
         mode = "a" if append_error else "w"
-        with open(error_file, mode) as f:
+        with safe_open(error_file, mode) as f:
             f.write(error_message)
     else:
         print(error_message, file=sys.stderr)
