@@ -110,15 +110,15 @@ def exit(args):
     except ValueError:
         sys.exit(0)                             # Defaults to 0 if no integer is provided
 
-def echo(args, output_file=None, error_file=None, append_output=False):
+def echo(args, output_file=None, error_file=None, append_output=False, append_error=False):
     """Prints the provided arguments as a single line, with optional stdout and stderr redirection"""
     output = " ".join(args)
 
     # If stderr redirection (`2>`) is used, create an empty file
     if error_file:
-        mode = "a" if append_output else "w" # Append mode if `2>>`, otherwise overwrite
+        mode = "a" if append_error else "w"  # Use append_error for stderr handling
         with open(error_file, mode) as f:
-            f.write(output + "\n")
+            f.write(output + "\n")  # create the file if it doesn't exist
     
     # Redirect stdout if `>` is used
     if output_file:
