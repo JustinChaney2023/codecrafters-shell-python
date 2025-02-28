@@ -116,7 +116,9 @@ def echo(args, output_file=None, error_file=None, append_output=False):
 
     # If stderr redirection (`2>`) is used, create an empty file
     if error_file:
-        open(error_file, "w").close()  # Ensures the file exists (empty)
+        mode = "a" if append_output else "w" # Append mode if `2>>`, otherwise overwrite
+        with open(error_file, mode) as f:
+            f.write(output + "\n")
     
     # Redirect stdout if `>` is used
     if output_file:
