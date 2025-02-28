@@ -4,7 +4,7 @@ import subprocess
 import shlex
 
 def safe_open(filename, mode):
-    """Open filename in the given mode, ensuring the parent directory exists."""
+    """Open filename in the given mode, creating parent directories if needed."""
     parent = os.path.dirname(filename)
     if parent and not os.path.exists(parent):
         os.makedirs(parent, exist_ok=True)
@@ -15,37 +15,35 @@ def main():
         sys.stdout.write("$ ")
         sys.stdout.flush()
 
-        # Wait for user input
         command_input = input().strip()
         if not command_input:
             continue
 
-        # Check for output redirection (> or 1>)
         output_file = None
         append_output = False
-        append_error = False 
         error_file = None
+        append_error = False 
         parts = shlex.split(command_input, posix=True)
 
-        # Handle stderr redirection (2>)
+        # Handle stderr redirection: 2>> (append) or 2> (overwrite)
         if "2>>" in parts:
             idx = parts.index("2>>")
             if idx + 1 >= len(parts):
                 print("syntax error: expected filename after '2>>'")
                 continue
-            error_file = parts[idx + 1]  # Extract stderr filename
-            append_error = True # Set append mode
-            parts = parts[:idx]  # Remove redirection part from command
+            error_file = parts[idx + 1]
+            append_error = True
+            parts = parts[:idx]
         elif "2>" in parts:
             idx = parts.index("2>")
             if idx + 1 >= len(parts):
                 print("syntax error: expected filename after '2>'")
                 continue
-            error_file = parts[idx + 1]  # Extract stderr filename
-            append_error = False # Overwrite mode
+            error_file = parts[idx + 1]
+            append_error = False
             parts = parts[:idx]
 
-        # Handle stdout redirection (> or 1> and >> or 1>>)
+        # Handle stdout redirection: >> (append) or > (overwrite)
         if ">>" in parts or "1>>" in parts:
             try:
                 idx = parts.index(">>") if ">>" in parts else parts.index("1>>")
@@ -72,7 +70,7 @@ def main():
                 continue
 
         if not parts:
-            continue  # Ensure valid command exists
+            continue
 
         command = parts[0]
         args = parts[1:]
@@ -96,23 +94,22 @@ def main():
         else:
             execute_command(command, args, output_file, error_file, append_output, append_error)
 
-
 def exit_shell(args):
-    """Exit the shell with an optional exit code"""
     try:
-        sys.exit(int(args[0]) if args else 0)   # Converts string to integer to take exit code
+        sys.exit(int(args[0]) if args else 0)
     except ValueError:
-        sys.exit(0)                             # Defaults to 0 if no integer is provided
+        sys.exit(0)
 
 def echo(args, output_file=None, error_file=None, append_output=False, append_error=False):
     output = " ".join(args)
-    # If error redirection is provided, write to that file and do not print to stdout.
+    # If stderr redirection is provided, write output to the error file.
     if error_file:
         mode = "a" if append_error else "w"
         with safe_open(error_file, mode) as f:
             f.write(output + "\n")
         return
 
+    # Otherwise, handle stdout redirection if provided.
     if output_file:
         mode = "a" if append_output else "w"
         with safe_open(output_file, mode) as f:
@@ -121,21 +118,16 @@ def echo(args, output_file=None, error_file=None, append_output=False, append_er
         print(output)
 
 def execute_pwd(output_file=None, append_output=False):
-    """Prints current working directory, with optional redirection"""
     output = os.getcwd()
     if output_file:
-        with open(output_file, "w") as f:
+        with safe_open(output_file, "a" if append_output else "w") as f:
             f.write(output + "\n")
     else:
         print(output)
 
 def cd(directory):
-    """Changes current working directory"""
     if directory == "~":
-        homepath = os.path.expanduser("~")
-        os.chdir(homepath)
-        return
-
+        directory = os.path.expanduser("~")
     try:
         os.chdir(directory)
     except FileNotFoundError:
@@ -146,14 +138,12 @@ def cd(directory):
         print(f"cd: {directory}: {e}")
 
 def execute_type(command, output_file=None, append_output=False):
-    """Determines if the command is a builtin or an executable"""
     builtins = ["echo", "exit", "type", "pwd", "cd"]
-
     if command in builtins:
         output = f"{command} is a shell builtin"
     else:
-        path_dirs = os.environ.get("PATH", "").split(":")
         output = f"{command}: not found"
+        path_dirs = os.environ.get("PATH", "").split(":")
         for directory in path_dirs:
             full_path = os.path.join(directory, command)
             if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
@@ -161,7 +151,7 @@ def execute_type(command, output_file=None, append_output=False):
                 break
 
     if output_file:
-        with open(output_file, "w") as f:
+        with safe_open(output_file, "a" if append_output else "w") as f:
             f.write(output + "\n")
     else:
         print(output)
@@ -175,7 +165,8 @@ def execute_command(command, args, output_file=None, error_file=None, append_out
                 stdout_target = safe_open(output_file, "a" if append_output else "w") if output_file else None
                 stderr_target = safe_open(error_file, "a" if append_error else "w") if error_file else sys.stderr
 
-                subprocess.run([command] + args, executable=full_path, stdout=stdout_target, stderr=stderr_target)
+                subprocess.run([command] + args, executable=full_path,
+                               stdout=stdout_target, stderr=stderr_target)
 
                 if stdout_target:
                     stdout_target.close()
@@ -186,7 +177,6 @@ def execute_command(command, args, output_file=None, error_file=None, append_out
                 print(f"Error executing {command}: {e}", file=sys.stderr)
                 return
 
-    # If the command is not found, output the error message
     error_message = f"{command}: command not found\n"
     if error_file:
         mode = "a" if append_error else "w"
