@@ -2,11 +2,11 @@ import sys
 import os
 import subprocess
 import shlex
-import contextlib  # For redirecting output in builtins
+import contextlib  # For redirecting output in built-in commands
 
 def safe_open(filename, mode):
     """
-    Open a file in the given mode, ensuring that its parent directory exists.
+    Open a file in the given mode, ensuring its parent directory exists.
     """
     parent = os.path.dirname(filename)
     if parent and not os.path.exists(parent):
@@ -15,28 +15,34 @@ def safe_open(filename, mode):
 
 def main():
     """
-    Main loop of the shell: reads user commands, parses redirections, and dispatches
-    to either built-in functions or external commands.
+    Main loop of the shell. Reads user input, parses for redirection operators,
+    and dispatches to built-in functions or external commands. Also makes sure to
+    flush output so that the prompt appears correctly.
     """
     while True:
+        # Print prompt and flush stdout immediately.
         sys.stdout.write("$ ")
         sys.stdout.flush()
+        try:
+            command_input = input().strip()
+        except EOFError:
+            # Exit gracefully on EOF.
+            print()  # Print newline before exiting.
+            break
 
-        # Wait for user input and strip leading/trailing whitespace.
-        command_input = input().strip()
         if not command_input:
             continue
 
-        # Default redirection values.
+        # Initialize redirection options.
         output_file = None
         append_output = False
         error_file = None
         append_error = False
 
-        # Split the command input into parts (handles quoted strings correctly).
+        # Split command input into parts (honoring quotes).
         parts = shlex.split(command_input, posix=True)
 
-        # --- Handle stderr redirection (2>> for append, 2> for overwrite) ---
+        # --- Handle stderr redirection (append and overwrite) ---
         if "2>>" in parts:
             idx = parts.index("2>>")
             if idx + 1 >= len(parts):
@@ -54,7 +60,7 @@ def main():
             append_error = False
             parts = parts[:idx]
 
-        # --- Handle stdout redirection (>> or 1>> for append, > or 1> for overwrite) ---
+        # --- Handle stdout redirection (append and overwrite) ---
         if ">>" in parts or "1>>" in parts:
             try:
                 idx = parts.index(">>") if ">>" in parts else parts.index("1>>")
@@ -80,27 +86,23 @@ def main():
                 print("syntax error: unexpected token '>'")
                 continue
 
-        # If no command remains after removing redirection parts, continue.
         if not parts:
-            continue
+            continue  # No command left to execute.
 
         command = parts[0]
         args = parts[1:]
 
-        # Dispatch built-in commands with proper redirection using context managers.
+        # If the command is a built-in, use a redirection context.
         if command in ["exit", "echo", "type", "pwd", "cd"]:
             with contextlib.ExitStack() as stack:
-                # Redirect stdout if output redirection is provided.
                 if output_file:
                     f_out = safe_open(output_file, "a" if append_output else "w")
                     stack.enter_context(f_out)
                     stack.enter_context(contextlib.redirect_stdout(f_out))
-                # Redirect stderr if error redirection is provided.
                 if error_file:
                     f_err = safe_open(error_file, "a" if append_error else "w")
                     stack.enter_context(f_err)
                     stack.enter_context(contextlib.redirect_stderr(f_err))
-                # Execute the appropriate built-in command.
                 if command == "exit":
                     exit_shell(args)
                 elif command == "echo":
@@ -118,12 +120,15 @@ def main():
                     else:
                         cd("~")
         else:
-            # Execute external commands.
+            # For external commands, call execute_command.
             execute_command(command, args, output_file, error_file, append_output, append_error)
+
+        # Ensure stdout is flushed at the end of command execution so the prompt shows.
+        sys.stdout.flush()
 
 def exit_shell(args):
     """
-    Exits the shell with an optional exit code.
+    Exit the shell with an optional exit code.
     """
     try:
         sys.exit(int(args[0]) if args else 0)
@@ -132,7 +137,7 @@ def exit_shell(args):
 
 def echo(args):
     """
-    Built-in echo command: prints the given arguments to standard output.
+    Built-in echo command: prints its arguments to stdout.
     """
     print(" ".join(args))
 
@@ -144,7 +149,8 @@ def execute_pwd():
 
 def execute_type(command):
     """
-    Built-in type command: indicates whether a command is a shell builtin or an executable.
+    Built-in type command: indicates whether the given command is a shell builtin
+    or an executable (if found in PATH).
     """
     builtins = ["echo", "exit", "type", "pwd", "cd"]
     if command in builtins:
@@ -161,8 +167,7 @@ def execute_type(command):
 def cd(directory):
     """
     Built-in cd command: changes the current working directory.
-    If the directory is '~', it changes to the user's home directory.
-    Errors are printed to standard error.
+    Supports '~' as a shortcut for the home directory.
     """
     if directory == "~":
         directory = os.path.expanduser("~")
@@ -177,8 +182,9 @@ def cd(directory):
 
 def execute_command(command, args, output_file=None, error_file=None, append_output=False, append_error=False):
     """
-    Executes external commands by searching for the executable in the PATH.
-    If redirection is requested, stdout and stderr are directed to the respective files.
+    Execute an external command by searching for it in the PATH.
+    Redirects stdout and/or stderr if redirection is specified.
+    If the command is not found, prints an error message.
     """
     path_dirs = os.environ.get("PATH", "").split(":")
     for directory in path_dirs:
@@ -188,7 +194,8 @@ def execute_command(command, args, output_file=None, error_file=None, append_out
                 stdout_target = safe_open(output_file, "a" if append_output else "w") if output_file else None
                 stderr_target = safe_open(error_file, "a" if append_error else "w") if error_file else sys.stderr
 
-                subprocess.run([command] + args, executable=full_path, stdout=stdout_target, stderr=stderr_target)
+                subprocess.run([command] + args, executable=full_path,
+                               stdout=stdout_target, stderr=stderr_target)
 
                 if stdout_target:
                     stdout_target.close()
@@ -199,14 +206,16 @@ def execute_command(command, args, output_file=None, error_file=None, append_out
                 print(f"Error executing {command}: {e}", file=sys.stderr)
                 return
 
-    # If command is not found, report the error.
+    # If no executable was found, output error message.
     error_message = f"{command}: command not found\n"
     if error_file:
         mode = "a" if append_error else "w"
         with safe_open(error_file, mode) as f:
             f.write(error_message)
     else:
-        print(error_message, file=sys.stderr)
+        # Print to stderr and flush stdout so that the prompt appears immediately.
+        print(error_message, file=sys.stderr, end="")
+        sys.stdout.flush()
 
 if __name__ == "__main__":
     main()
