@@ -86,7 +86,7 @@ def main():
         if command == "exit":
             exit(args)
         elif command == "echo":
-            echo(args, output_file, error_file, append_output, append_error)  # Pass error_file to echo
+            echo(args, output_file, append_output)
         elif command == "type":
             if args:
                 execute_type(args[0], output_file, append_output)
@@ -110,25 +110,16 @@ def exit(args):
     except ValueError:
         sys.exit(0)                             # Defaults to 0 if no integer is provided
 
-def echo(args, output_file=None, error_file=None, append_output=False, append_error=False):
-    """Prints the provided arguments as a single line, with optional stdout and stderr redirection"""
+def echo(args, output_file=None, append_output=False):
+    """Prints the provided arguments as a single line, with optional stdout redirection"""
     output = " ".join(args)
-
-    # Redirect stderr if `2>>` or `2>` is used
-    if error_file:
-        mode = "a" if append_error else "w"  # Append if `2>>`, overwrite if `2>`
-        with open(error_file, mode) as f:
-            f.write(output + "\n")  # Write output to stderr file
-        return  # Ensure nothing is printed to stdout
-
-    # Redirect stdout if `>` or `>>` is used
     if output_file:
         mode = "a" if append_output else "w"
         with open(output_file, mode) as f:
             f.write(output + "\n")
     else:
-        # Default behavior: print normally to stdout if no redirection
         print(output)
+
 
 def execute_pwd(output_file=None, append_output=False):
     """Prints current working directory, with optional redirection"""
