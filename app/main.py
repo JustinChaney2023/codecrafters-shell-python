@@ -114,12 +114,12 @@ def echo(args, output_file=None, error_file=None, append_output=False, append_er
     """Prints the provided arguments as a single line, with optional stdout and stderr redirection"""
     output = " ".join(args)
 
-    # If stderr redirection (`2>>` or `2>`) is used, write to the error file
+    # Redirect stderr if `2>>` or `2>` is used
     if error_file:
         mode = "a" if append_error else "w"  # Append if `2>>`, overwrite if `2>`
         with open(error_file, mode) as f:
-            f.write(output + "\n")  # Correctly writes to stderr file
-        return  # Ensure the function does not print to stdout
+            f.write(output + "\n")  # Write output to stderr file
+        return  # Ensure nothing is printed to stdout
 
     # Redirect stdout if `>` or `>>` is used
     if output_file:
@@ -207,8 +207,6 @@ def execute_command(command, args, output_file=None, error_file=None, append_out
             f.write(error_message)
     else:
         print(error_message, file=sys.stderr)
-
-
 
 if __name__ == "__main__":
     main()
