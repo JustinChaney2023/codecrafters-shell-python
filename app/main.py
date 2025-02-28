@@ -114,19 +114,22 @@ def echo(args, output_file=None, error_file=None, append_output=False, append_er
     """Prints the provided arguments as a single line, with optional stdout and stderr redirection"""
     output = " ".join(args)
 
-    # If stderr redirection (`2>`) is used, create an empty file
+    # Redirect stderr if `2>` or `2>>` is used
     if error_file:
-        mode = "a" if append_error else "w"  # Use append_error for stderr handling
+        mode = "a" if append_error else "w"  # Append if `2>>`, overwrite if `2>`
         with open(error_file, mode) as f:
-            f.write(output + "\n")  # create the file if it doesn't exist
-    
-    # Redirect stdout if `>` is used
+            f.write(output + "\n")  # Write only to stderr
+
+    # Redirect stdout if `>` or `>>` is used
     if output_file:
-        mode = "a" if append_output else "w" # Append mode if `>>`, otherwise overwrite
+        mode = "a" if append_output else "w"
         with open(output_file, mode) as f:
             f.write(output + "\n")
-    else:
+    elif not error_file:
+        # Default behavior: print normally to stdout if no redirection
         print(output)
+
+
 
 def execute_pwd(output_file=None, append_output=False):
     """Prints current working directory, with optional redirection"""
@@ -175,7 +178,7 @@ def execute_type(command, output_file=None, append_output=False):
         print(output)
 
 def execute_command(command, args, output_file=None, error_file=None, append_output=False, append_error=False):
-    """Searches for an executable in PATH and runs it with arguments, supporting output & error redirection"""
+    """Executes a command, supporting stdout and stderr redirection, including append mode."""
     path_dirs = os.environ.get("PATH", "").split(":")
 
     for directory in path_dirs:
@@ -197,7 +200,15 @@ def execute_command(command, args, output_file=None, error_file=None, append_out
                 print(f"Error executing {command}: {e}", file=sys.stderr)
                 return
 
-    print(f"{command}: command not found", file=sys.stderr)
+    # Handle 'command not found' properly with stderr redirection
+    error_message = f"{command}: command not found\n"
+    if error_file:
+        mode = "a" if append_error else "w"
+        with open(error_file, mode) as f:
+            f.write(error_message)
+    else:
+        print(error_message, file=sys.stderr)
+
 
 
 if __name__ == "__main__":
