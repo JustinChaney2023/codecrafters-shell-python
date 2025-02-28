@@ -16,6 +16,7 @@ def main():
         # Check for output redirection (> or 1>)
         output_file = None
         append_output = False
+        append_error = False 
         error_file = None
         parts = shlex.split(command_input, posix=True)
 
@@ -171,7 +172,7 @@ def execute_type(command, output_file=None, append_output=False):
     else:
         print(output)
 
-def execute_command(command, args, output_file=None, error_file=None, append_output=False):
+def execute_command(command, args, output_file=None, error_file=None, append_output=False, append_error=False):
     """Searches for an executable in PATH and runs it with arguments, supporting output & error redirection"""
     path_dirs = os.environ.get("PATH", "").split(":")
 
