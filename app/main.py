@@ -15,6 +15,7 @@ def main():
 
         # Check for output redirection (> or 1>)
         output_file = None
+        append_output = False
         error_file = None
         parts = shlex.split(command_input, posix=True)
 
@@ -34,7 +35,26 @@ def main():
                 continue
 
         # Handle stdout redirection (> or 1>)
-        if ">" in parts or "1>" in parts:
+        if ">>" in parts or "1>>" in parts:
+            try:
+                if ">>" in parts:
+                    idx = parts.index(">>")
+                else:
+                    idx = parts.index("1>>")
+
+                if idx + 1 >= len(parts):
+                    print("syntax error: expected filename after '>>'")
+                    continue
+
+                output_file = parts[idx + 1]  # Extract stdout filename
+                append_output = True # Set append mode
+                parts = parts[:idx]  # Remove redirection part from command
+
+            except IndexError:
+                print("syntax error: unexpected token '>>'")
+                continue
+
+        elif ">" in parts or "1>" in parts:
             try:
                 if ">" in parts:
                     idx = parts.index(">")
@@ -46,6 +66,7 @@ def main():
                     continue
 
                 output_file = parts[idx + 1]  # Extract stdout filename
+                append_output = False # Overwrite mode
                 parts = parts[:idx]  # Remove redirection part from command
 
             except IndexError:
