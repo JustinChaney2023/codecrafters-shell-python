@@ -114,22 +114,21 @@ def echo(args, output_file=None, error_file=None, append_output=False, append_er
     """Prints the provided arguments as a single line, with optional stdout and stderr redirection"""
     output = " ".join(args)
 
-    # Redirect stderr if `2>` or `2>>` is used
+    # If stderr redirection (`2>>` or `2>`) is used, write to the error file
     if error_file:
         mode = "a" if append_error else "w"  # Append if `2>>`, overwrite if `2>`
         with open(error_file, mode) as f:
-            f.write(output + "\n")  # Write only to stderr
+            f.write(output + "\n")  # Correctly writes to stderr file
+        return  # Ensure the function does not print to stdout
 
     # Redirect stdout if `>` or `>>` is used
     if output_file:
         mode = "a" if append_output else "w"
         with open(output_file, mode) as f:
             f.write(output + "\n")
-    elif not error_file:
+    else:
         # Default behavior: print normally to stdout if no redirection
         print(output)
-
-
 
 def execute_pwd(output_file=None, append_output=False):
     """Prints current working directory, with optional redirection"""
