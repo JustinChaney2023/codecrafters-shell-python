@@ -122,7 +122,7 @@ def echo(args, output_file=None, error_file=None, append_output=False):
         print(output)
 
 
-def execute_pwd(output_file=None), append_output=False):
+def execute_pwd(output_file=None, append_output=False):
     """Prints current working directory, with optional redirection"""
     output = os.getcwd()
     if output_file:
