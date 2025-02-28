@@ -106,7 +106,7 @@ def exit(args):
     except ValueError:
         sys.exit(0)                             # Defaults to 0 if no integer is provided
 
-def echo(args, output_file=None, error_file=None):
+def echo(args, output_file=None, error_file=None, append_output=False):
     """Prints the provided arguments as a single line, with optional stdout and stderr redirection"""
     output = " ".join(args)
 
@@ -122,7 +122,7 @@ def echo(args, output_file=None, error_file=None):
         print(output)
 
 
-def execute_pwd(output_file=None):
+def execute_pwd(output_file=None), append_output=False):
     """Prints current working directory, with optional redirection"""
     output = os.getcwd()
     if output_file:
@@ -147,7 +147,7 @@ def cd(directory):
     except Exception as e:
         print(f"cd: {directory}: {e}")
 
-def execute_type(command, output_file=None):
+def execute_type(command, output_file=None, append_output=False):
     """Determines if the command is a builtin or an executable"""
     builtins = ["echo", "exit", "type", "pwd", "cd"]
 
@@ -168,7 +168,7 @@ def execute_type(command, output_file=None):
     else:
         print(output)
 
-def execute_command(command, args, output_file=None, error_file=None):
+def execute_command(command, args, output_file=None, error_file=None, append_output=False):
     """Searches for an executable in PATH and runs it with arguments, supporting output & error redirection"""
     path_dirs = os.environ.get("PATH", "").split(":")
 
